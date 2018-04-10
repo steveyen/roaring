@@ -330,6 +330,17 @@ func (rb *Bitmap) Iterator() IntIterable {
 	return newIntIterator(rb)
 }
 
+func (rb *Bitmap) IteratorReuse(reuse IntIterable) IntIterable {
+	ii, ok := reuse.(*intIterator)
+	if !ok || ii == nil {
+		return newIntIterator(rb)
+	}
+	ii.pos = 0
+	ii.highlowcontainer = &rb.highlowcontainer
+	ii.init()
+	return ii
+}
+
 // Iterator creates a new ManyIntIterable to iterate over the integers contained in the bitmap, in sorted order
 func (rb *Bitmap) ManyIterator() ManyIntIterable {
 	return newManyIntIterator(rb)
