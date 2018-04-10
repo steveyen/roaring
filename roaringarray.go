@@ -105,6 +105,10 @@ type roaringArray struct {
 	// conserz is used at serialization time
 	// to serialize containers. Otherwise empty.
 	conserz []containerSerz
+
+	runContainer16Pool  []*runContainer16
+	bitmapContainerPool []*bitmapContainer
+	arrayContainerPool  []*arrayContainer
 }
 
 // containerSerz facilitates serializing container (tricky to
@@ -242,6 +246,22 @@ func (ra *roaringArray) resize(newsize int) {
 }
 
 func (ra *roaringArray) clear() {
+	for _, c := range ra.containers {
+		switch v := c.(type) {
+		case *runContainer16:
+			v.card = 0
+			v.iv = nil
+			ra.runContainer16Pool = append(ra.runContainer16Pool, v)
+		case *bitmapContainer:
+			v.cardinality = 0
+			v.bitmap = nil
+			ra.bitmapContainerPool = append(ra.bitmapContainerPool, v)
+		case *arrayContainer:
+			v.content = nil
+			ra.arrayContainerPool = append(ra.arrayContainerPool, v)
+		}
+	}
+
 	ra.resize(0)
 	ra.copyOnWrite = false
 	ra.conserz = nil
@@ -610,27 +630,42 @@ func (ra *roaringArray) fromBuffer(buf []byte) (int64, error) {
 			if pos+int(nr)*4 > len(buf) {
 				return 0, fmt.Errorf("malformed bitmap, a run container overruns buffer at %d:%d", pos, pos+int(nr)*4)
 			}
-			nb := runContainer16{
-				iv:   byteSliceAsInterval16Slice(buf[pos : pos+int(nr)*4]),
-				card: int64(card),
+			var nb *runContainer16
+			if len(ra.runContainer16Pool) > 0 {
+				nb = ra.runContainer16Pool[len(ra.runContainer16Pool)-1]
+				ra.runContainer16Pool = ra.runContainer16Pool[:len(ra.runContainer16Pool)-1]
+			} else {
+				nb = &runContainer16{}
 			}
+			nb.iv = byteSliceAsInterval16Slice(buf[pos : pos+int(nr)*4])
+			nb.card = int64(card)
 			pos += int(nr) * 4
-			ra.containers[i] = &nb
+			ra.containers[i] = nb
 		} else if card > arrayDefaultMaxSize {
 			// bitmap container
-			nb := bitmapContainer{
-				cardinality: card,
-				bitmap:      byteSliceAsUint64Slice(buf[pos : pos+arrayDefaultMaxSize*2]),
+			var nb *bitmapContainer
+			if len(ra.bitmapContainerPool) > 0 {
+				nb = ra.bitmapContainerPool[len(ra.bitmapContainerPool)-1]
+				ra.bitmapContainerPool = ra.bitmapContainerPool[:len(ra.bitmapContainerPool)-1]
+			} else {
+				nb = &bitmapContainer{}
 			}
+			nb.cardinality = card
+			nb.bitmap = byteSliceAsUint64Slice(buf[pos : pos+arrayDefaultMaxSize*2])
 			pos += arrayDefaultMaxSize * 2
-			ra.containers[i] = &nb
+			ra.containers[i] = nb
 		} else {
 			// array container
-			nb := arrayContainer{
-				byteSliceAsUint16Slice(buf[pos : pos+card*2]),
+			var nb *arrayContainer
+			if len(ra.arrayContainerPool) > 0 {
+				nb = ra.arrayContainerPool[len(ra.arrayContainerPool)-1]
+				ra.arrayContainerPool = ra.arrayContainerPool[:len(ra.arrayContainerPool)-1]
+			} else {
+				nb = &arrayContainer{}
 			}
+			nb.content = byteSliceAsUint16Slice(buf[pos : pos+card*2])
 			pos += card * 2
-			ra.containers[i] = &nb
+			ra.containers[i] = nb
 		}
 	}
 
