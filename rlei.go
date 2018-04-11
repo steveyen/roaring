@@ -176,6 +176,18 @@ func (rc *runContainer16) fillLeastSignificant16bits(x []uint32, i int, mask uin
 	}
 }
 
+func (rc *runContainer16) getShortIteratorReuse(si shortIterable) shortIterable {
+	i, ok := si.(*runIterator16)
+	if ok && i != nil {
+		i.rc = rc
+		i.curIndex = -1
+		i.curPosInIndex = 0
+		i.curSeq = 0
+		return i
+	}
+	return rc.newRunIterator16()
+}
+
 func (rc *runContainer16) getShortIterator() shortIterable {
 	return rc.newRunIterator16()
 }

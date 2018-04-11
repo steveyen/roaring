@@ -24,6 +24,16 @@ func (ac *arrayContainer) fillLeastSignificant16bits(x []uint32, i int, mask uin
 	}
 }
 
+func (ac *arrayContainer) getShortIteratorReuse(si shortIterable) shortIterable {
+	i, ok := si.(*shortIterator)
+	if ok && i != nil {
+		i.slice = ac.content
+		i.loc = 0
+		return i
+	}
+	return &shortIterator{ac.content, 0}
+}
+
 func (ac *arrayContainer) getShortIterator() shortIterable {
 	return &shortIterator{ac.content, 0}
 }

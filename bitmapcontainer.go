@@ -114,6 +114,16 @@ func newBitmapContainerShortIterator(a *bitmapContainer) *bitmapContainerShortIt
 	return &bitmapContainerShortIterator{a, a.NextSetBit(0)}
 }
 
+func (bc *bitmapContainer) getShortIteratorReuse(si shortIterable) shortIterable {
+	i, ok := si.(*bitmapContainerShortIterator)
+	if ok && i != nil {
+		i.ptr = bc
+		i.i = bc.NextSetBit(0)
+		return i
+	}
+	return newBitmapContainerShortIterator(bc)
+}
+
 func (bc *bitmapContainer) getShortIterator() shortIterable {
 	return newBitmapContainerShortIterator(bc)
 }

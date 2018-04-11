@@ -229,7 +229,7 @@ func (ii *intIterator) HasNext() bool {
 
 func (ii *intIterator) init() {
 	if ii.highlowcontainer.size() > ii.pos {
-		ii.iter = ii.highlowcontainer.getContainerAtIndex(ii.pos).getShortIterator()
+		ii.iter = ii.highlowcontainer.getContainerAtIndex(ii.pos).getShortIteratorReuse(ii.iter)
 		ii.hs = uint32(ii.highlowcontainer.getKeyAtIndex(ii.pos)) << 16
 	}
 }
